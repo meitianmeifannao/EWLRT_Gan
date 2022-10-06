@@ -11,12 +11,8 @@ result <- function(d){
   m <- 50
   p_1 <- p_0+d*sqrt(p_0*(1-p_0)/m)
   n <- 1 
- 
   lambda <- 0.2
-  loop <- 10000
-  
-  
-  
+  loop <- 20000
   cl <- makeCluster(detectCores())
   registerDoParallel(cl)
   
@@ -40,16 +36,68 @@ result <- function(d){
   return(c(arl,sdrl))
 }
 
-
-
 output<-matrix(1:20,10,2)
-
-
 j <- 1
 for (d in c(0,0.05,0.1,0.25,0.5,0.75,1,1.5,2,3)) {
   output[j,] <- result(d)
   j <- j+1
 }
+print(output)
+write.table(output, file = "output.csv",sep = ",", row.names = FALSE, col.names = FALSE)
 
+###CED###
+rm(list = ls())
+library(parallel)
+library(foreach)
+library(iterators)
+library(doParallel)
+
+result <- function(d){
+  h<-1.0297
+  #d<-0
+  p_0 <- 0.01
+  m <- 50
+  p_1 <- p_0+d*sqrt(p_0*(1-p_0)/m)
+  n <- 1 
+  lambda <- 0.2
+  loop <- 20000
+  if (d == 0) {
+    w <- 0
+  }else {
+    w <- 100
+  } 
+  
+  cl <- makeCluster(detectCores())
+  registerDoParallel(cl)
+  
+  rls <- foreach(i = 1:loop,.combine = 'c')%dopar%{
+    Z <- m*p_0
+    for (t in 1:8000) {
+      x <- rbinom(n,m,p_0)
+      if(t>w){
+        x <- rbinom(n,m,p_1)
+      }
+      Z <- round(lambda*mean(x)+(1-lambda)*Z)+rnorm(1,0,0.01)
+      if(Z > h| t == 8000){
+        rl <- t
+        break
+      }
+    }
+    rl
+  }
+  
+  stopCluster(cl)
+  rls <- rls[rls>w]-w
+  arl <- mean(rls)
+  sdrl <- sd(rls)
+  return(c(arl,sdrl))
+}
+
+output<-matrix(1:20,10,2)
+j <- 1
+for (d in c(0,0.05,0.1,0.25,0.5,0.75,1,1.5,2,3)) {
+  output[j,] <- result(d)
+  j <- j+1
+}
 print(output)
 write.table(output, file = "output.csv",sep = ",", row.names = FALSE, col.names = FALSE)
