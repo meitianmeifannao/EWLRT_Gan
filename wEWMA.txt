@@ -1,0 +1,47 @@
+rm(list = ls())
+library(parallel)
+library(foreach)
+library(iterators)
+library(doParallel)
+
+result <- function(h){
+#h<-6.0766
+d<-0
+p0<-0.05
+n<-15
+p1 <- p0+d*sqrt(p0*(1-p0)/n)
+lambda<-0.05
+w <- 2
+loop <- 20000
+
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+rls <- foreach(i = 1:loop,.combine = 'c')%dopar%{
+  Z <- 0
+  for (t in 1:8000) {
+    x <- rbinom(1,n,p1)
+    Z <- max(0,lambda*sign(x-n*p0)*(abs(x-n*p0))^w+(1-lambda)*Z)
+     ####wEWMAh#Z <-lambda*sign(x-n*p0)*(abs(x-n*p0))^w+(1-lambda)*Z
+    if(Z > h| t == 8000){
+      rl <- t
+      break
+    }
+  }
+  rl
+}
+
+stopCluster(cl)
+arl <- mean(rls)
+sdrl <- sd(rls)
+return(c(arl,sdrl))
+}
+
+output<-matrix(1:20,10,2)
+j <- 1
+for (d in c(0,0.05,0.1,0.25,0.5,0.75,1,1.5,2,3)) {
+  output[j,] <- result(d)
+  j <- j+1
+}
+print(output)
+write.table(output, file = "output.csv",sep = ",", row.names = FALSE, col.names = FALSE)
